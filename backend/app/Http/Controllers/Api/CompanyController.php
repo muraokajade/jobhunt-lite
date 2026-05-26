@@ -4,20 +4,22 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 use App\Models\Company;
 use App\Http\Requests\StoreCompanyRequest;
+use App\Http\Requests\updateCompanyRequest;
+
+use App\Http\Resources\CompanyResource;
 
 class CompanyController extends Controller
 {
     /**
      * 企業一覧を取得する
      */
-    public function index(): JsonResponse
+    public function index()
     {
         $companies = Company::latest()->get();
 
-        return response()->json($companies);
+        return CompanyResource::collection($companies);
     }
 
 
@@ -39,7 +41,9 @@ class CompanyController extends Controller
 
         $company = Company::create($validated);
 
-        return response()->json($company, 201); //確認方法
+        // return response()->json($company, 201); //確認方法
+
+        return new CompanyResource($company);
     }
 
     /**
@@ -53,29 +57,30 @@ class CompanyController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Company $company)
+    public function update(updateCompanyRequest $request, Company $company)
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'media' => ['nullable', 'string', 'max:255'],
-            'priority' => ['nullable', 'string', 'max:255'],
-            'status' => ['nullable', 'string', 'max:255'],
-            'applied_date' => ['nullable', 'date'],
-            'interview_date' => ['nullable', 'date'],
-            'job_url' => ['nullable', 'string'],
-            'interview_url' => ['nullable', 'string'],
-            'memo' => ['nullable', 'string'],
-            'next_action' => ['nullable', 'string', 'max:255'],
-            'document_result' => ['nullable', 'string', 'max:255'],
-            'first_interview_result' => ['nullable', 'string', 'max:255'],
-            'second_interview_result' => ['nullable', 'string', 'max:255'],
-            'final_result' => ['nullable', 'string', 'max:255'],
-            'rejection_stage' => ['nullable', 'string', 'max:255'],
-        ]);
+        // $validated = $request->validate([
+        //     'name' => ['required', 'string', 'max:255'],
+        //     'media' => ['nullable', 'string', 'max:255'],
+        //     'priority' => ['nullable', 'string', 'max:255'],
+        //     'status' => ['nullable', 'string', 'max:255'],
+        //     'applied_date' => ['nullable', 'date'],
+        //     'interview_date' => ['nullable', 'date'],
+        //     'job_url' => ['nullable', 'string'],
+        //     'interview_url' => ['nullable', 'string'],
+        //     'memo' => ['nullable', 'string'],
+        //     'next_action' => ['nullable', 'string', 'max:255'],
+        //     'document_result' => ['nullable', 'string', 'max:255'],
+        //     'first_interview_result' => ['nullable', 'string', 'max:255'],
+        //     'second_interview_result' => ['nullable', 'string', 'max:255'],
+        //     'final_result' => ['nullable', 'string', 'max:255'],
+        //     'rejection_stage' => ['nullable', 'string', 'max:255'],
+        // ]);
+        $validated = $request->validated();
 
         $company->update($validated);
 
-        return response()->json($company);
+        return new CompanyResource($company);
     }
 
     /**

@@ -33,3 +33,23 @@ export type CompanyForm = {
   applied_date: string;
   memo: string;
 };
+// 詳細モーダル用フォームの入力値を表す型。
+// 既存企業の現在データをinput / select / textareaに入れて表示するために使う。
+// この時点ではPUT更新はまだ行わない。
+export type CompanyEditForm = {
+  name: string;
+  media: string;
+  priority: string;
+  status: string;
+  applied_date: string;
+  interview_date: string;
+  job_url: string;
+  interview_url: string;
+  next_action: string;
+  document_result: string;
+  first_interview_result: string;
+  second_interview_result: string;
+  final_result: string;
+  rejection_stage: string;
+  memo: string;
+};
