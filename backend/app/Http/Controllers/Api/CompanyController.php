@@ -10,14 +10,42 @@ use App\Http\Requests\updateCompanyRequest;
 
 use App\Http\Resources\CompanyResource;
 
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Auth;
+
 class CompanyController extends Controller
 {
     /**
      * 企業一覧を取得する
      */
-    public function index()
+    public function index(Request $request): AnonymousResourceCollection //何これww
     {
-        $companies = Company::latest()->get();
+
+        $query = Company::query()->where('user_id', Auth::id());
+
+        if ($request->filled('keyword')) {
+            $keyword = $request->query('keyword');
+
+            $query->where(function ($q) use ($keyword) {
+                $q->where('name', 'like', "%{$keyword}%")
+                    ->orWhere('memo', 'like', "%{$keyword}%"); //orWhereミス
+            });
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->query('status'));
+        }
+
+        if ($request->filled('media')) {
+            $query->where('media', $request->query('media'));
+        }
+
+        $companies = $query
+            ->orderByRaw(('interview_date IS NULL'))
+            ->orderBy('interview_date')
+            ->orderByDesc('created_at')
+            ->get();
+
 
         return CompanyResource::collection($companies);
     }

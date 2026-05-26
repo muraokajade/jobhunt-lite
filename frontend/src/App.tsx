@@ -43,15 +43,86 @@ function App() {
     memo: "",
   });
 
+  const [keyword, setKeyword] = useState("");
+  const [status, setStatus] = useState("");
+  const [media, setMedia] = useState("");
+
 
   //一覧表示
-  async function fetchCompanies() {
-    const response = await fetch(`${API_BASE_URL}/companies`);
+  //TODO try catchにする。
+  // async function fetchCompanies() {
+
+  //   const params = new URLSearchParams();
+
+  //   if(keyword) {
+  //     params.append("keyword", keyword);
+  //   }
+  //   if(status) {
+  //     params.append("status", status);
+  //   }
+  //   if(media) {
+  //     params.append("media", media)
+  //   }
+
+  //   const queryString = params.toString();
+
+  //   const url = queryString
+  //     ? `${API_BASE_URL}/companies?${queryString}`
+  //     : `${API_BASE_URL}/companies`;
+
+
+  //   // const response = await fetch(`${API_BASE_URL}/companies`);
+  //   const response = await fetch(url);
+  //   const json = await response.json();
+
+  //   const data = json.data;
+  //   setCompanies(data);
+  // }
+
+  //全件表示
+  const fetchCompanies = async() => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/companies`);
+
+      if(!response.ok) {
+        throw new Error("会社表示に失敗しました。");
+      }
+
+      const json = await response.json();
+      const data = json.data;
+      setCompanies(data);
+
+    } catch(e) {
+      console.error(e);
+    }
+  }
+
+  //検索取得
+  const searchCompanies = async() => {
+    const params = new URLSearchParams();
+
+    if(keyword) {
+      params.append("keyword",keyword);
+    }
+
+    if (status) {
+      params.append("status", status);
+    }
+
+    if (media) {
+      params.append("media", media);
+    }
+
+    const response = await fetch(`${API_BASE_URL}/companies?${params.toString()}`);
+
     const json = await response.json();
 
-    const data = json.data;
-    setCompanies(data);
+    setCompanies(json.data)
   }
+
+
+
+
 
   useEffect(() => {
     fetchCompanies();
@@ -320,6 +391,72 @@ function App() {
             {isSubmitting ? "登録中..." : "登録する"}
           </button>
         </form>
+        <div className="mt-6 rounded-lg border bg-slate-50 p-4">
+          <h2 className="mb-4 text-xl font-bold">検索・絞り込み</h2>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-sm font-semibold">キーワード</label>
+              <input
+                type="text"
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                className="w-full rounded border px-3 py-2"
+                placeholder="企業名・メモで検索"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-semibold">状況</label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full rounded border bg-white px-3 py-2"
+              >
+                <option value="">すべて</option>
+                <option value="応募済み">応募済み</option>
+                <option value="選考中">選考中</option>
+                <option value="内定">内定</option>
+                <option value="落選">落選</option>
+                <option value="辞退">辞退</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-semibold">媒体</label>
+              <input
+                type="text"
+                value={media}
+                onChange={(e) => setMedia(e.target.value)}
+                className="w-full rounded border px-3 py-2"
+                placeholder="Green / type / レバテック"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 flex gap-3">
+            <button
+              type="button"
+              onClick={searchCompanies}
+              className="rounded bg-slate-900 px-4 py-2 font-semibold text-white"
+            >
+              検索する
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setKeyword("");
+                setStatus("");
+                setMedia("");
+                fetchCompanies();
+              }}
+              className="rounded border border-slate-300 px-4 py-2 font-semibold text-slate-700"
+            >
+              条件クリア
+            </button>
+          </div>
+        </div>
         <div className="mt-6">
           <h2 className="mb-4 text-xl font-bold">企業一覧</h2>
 
