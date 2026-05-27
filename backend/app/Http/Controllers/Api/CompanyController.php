@@ -122,4 +122,21 @@ class CompanyController extends Controller
             'message' => '企業を削除しました。'
         ]);
     }
+
+    public function toggleFavorite(Company $company)
+    {
+
+
+        //この企業の user_id が、ログイン中ユーザーのIDと一致するなら処理を続ける。
+        //一致しないなら 403 Forbidden を返して処理を止める。
+        abort_unless($company->user_id === Auth::id(), 403);
+
+        $company->is_favorite = ! (bool) $company->is_favorite;
+
+        $company->save();
+
+        //fresh?is_favorite を反転して保存した後の最新データを CompanyResource で返すために使っています。
+        return new CompanyResource($company->fresh());
+
+    }
 }

@@ -18,6 +18,7 @@ export type Company = {
   secondInterviewResult: string | null;
   finalResult: string | null;
   rejectionStage: string | null;
+  isFavorite: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -29,7 +30,7 @@ export type CompanyForm = {
   media: string;
   priority: string;
   status: string;
-  job_url:string,
+  job_url: string;
   applied_date: string;
   memo: string;
 };
@@ -52,4 +53,24 @@ export type CompanyEditForm = {
   final_result: string;
   rejection_stage: string;
   memo: string;
+};
+
+export type CompanyTableProps = {
+  companies: Company[];
+  loading: boolean;
+  priorityOptions: Option[];
+  statusOptions: string[];
+  onOpenModal: (company: Company) => void;
+  onDelete: (company: Company) => void;
+  onPriorityChange: (company: Company, priority: string) => void;
+  onStatusChange: (company: Company, status: string) => void;
+  onToggleFavorite: (company: Company) => void;
+};
+
+// value / label形式のselect選択肢で使う共通型。
+// priorityOptionsやrejectionStageOptionsなどで利用する。
+
+export type Option = {
+  value: string;
+  label: string;
 };

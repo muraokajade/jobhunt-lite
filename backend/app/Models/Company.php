@@ -29,4 +29,9 @@ class Company extends Model
         'rejection_stage',
         'is_favorite',
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }

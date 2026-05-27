@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import type { Company, CompanyForm, CompanyEditForm} from "./types/company"; 
+import type { Company, CompanyForm, CompanyEditForm } from "./types/company";
+import CompanyTable from "./components/CompanyTable";
+import { priorityOptions, statusOptions } from "./constants/companyOptions";
+import { buildCompanyRequestBody } from "./utils/companyUtils";
 
 const API_BASE_URL = "http://127.0.0.1:8001/api";
 
@@ -11,6 +14,7 @@ function getToday() {
 
 function App() {
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [loading, setLoading] = useState(false);
   const [form, setForm] = useState<CompanyForm>({
     name: "",
     media: "",
@@ -18,7 +22,7 @@ function App() {
     status: "応募済み",
     job_url: "",
     applied_date: getToday(),
-    memo: "", 
+    memo: "",
   });
   // 登録処理中かどうかを管理する状態
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -47,7 +51,6 @@ function App() {
   const [status, setStatus] = useState("");
   const [media, setMedia] = useState("");
 
-
   //一覧表示
   //TODO try catchにする。
   // async function fetchCompanies() {
@@ -70,7 +73,6 @@ function App() {
   //     ? `${API_BASE_URL}/companies?${queryString}`
   //     : `${API_BASE_URL}/companies`;
 
-
   //   // const response = await fetch(`${API_BASE_URL}/companies`);
   //   const response = await fetch(url);
   //   const json = await response.json();
@@ -80,29 +82,130 @@ function App() {
   // }
 
   //全件表示
-  const fetchCompanies = async() => {
+  const fetchCompanies = async () => {
+    setLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/companies`);
 
-      if(!response.ok) {
+      if (!response.ok) {
         throw new Error("会社表示に失敗しました。");
       }
 
       const json = await response.json();
       const data = json.data;
       setCompanies(data);
-
-    } catch(e) {
+    } catch (e) {
       console.error(e);
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
+  const handlePriorityChange = async (company: Company, priority: string) => {
+    setLoading(true);
+
+    //最初はめんどくさく全部出す。
+    try {
+      const requestBody = buildCompanyRequestBody(company, { priority });
+      // const requestBody = {
+      //   name: company.name,
+      //   media: company.media,
+      //   priority: priority,
+      //   status: company.status,
+      //   applied_date: company.appliedDate,
+      //   interview_date: company.interviewDate,
+      //   job_url: company.jobUrl,
+      //   interview_url: company.interviewUrl,
+      //   memo: company.memo,
+      //   next_action: company.nextAction,
+      //   document_result: company.documentResult,
+      //   first_interview_result: company.firstInterviewResult,
+      //   second_interview_result: company.secondInterviewResult,
+      //   final_result: company.finalResult,
+      //   rejection_stage: company.rejectionStage,
+      // };
+      const response = await fetch(`${API_BASE_URL}/companies/${company.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      });
+      if (!response.ok) {
+        throw new Error("志望度変更に失敗しました。");
+
+        await fetchCompanies();
+      }
+    } catch (e) {
+      console.error("志望度変更に失敗しました。");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStatusChange = async (company: Company, status: string) => {
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/companies/${company.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(
+          buildCompanyRequestBody(company, {
+            status,
+          }),
+        ),
+      });
+
+      if (!response.ok) {
+        throw new Error("状況変更に失敗しました。");
+      }
+
+      await fetchCompanies();
+    } catch (e) {
+      console.error(e);
+      alert("状況変更に失敗しました。");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleFavorite = async (company: Company) => {
+    setLoading(true);
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/companies/${company.id}/favorite`,
+        {
+          method: "PATCH",
+          headers: {
+            Accept: "application/json",
+            //Authorization: `Bearer ${authToken}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("お気に入りの切り替えに失敗しました。");
+      }
+
+      await fetchCompanies();
+    } catch (e) {
+      console.error(e);
+      alert("お気に入りの切り替えに失敗しました。");
+    } finally {
+      setLoading(false);
+    }
+  };
   //検索取得
-  const searchCompanies = async() => {
+  const searchCompanies = async () => {
     const params = new URLSearchParams();
 
-    if(keyword) {
-      params.append("keyword",keyword);
+    if (keyword) {
+      params.append("keyword", keyword);
     }
 
     if (status) {
@@ -113,23 +216,21 @@ function App() {
       params.append("media", media);
     }
 
-    const response = await fetch(`${API_BASE_URL}/companies?${params.toString()}`);
+    const response = await fetch(
+      `${API_BASE_URL}/companies?${params.toString()}`,
+    );
 
     const json = await response.json();
 
-    setCompanies(json.data)
-  }
-
-
-
-
+    setCompanies(json.data);
+  };
 
   useEffect(() => {
     fetchCompanies();
   }, []);
 
   //企業登録
-  const createCompany = async() => {
+  const createCompany = async () => {
     try {
       //二重送信を防ぐ
       setIsSubmitting(true);
@@ -142,10 +243,9 @@ function App() {
         job_url: form.job_url,
         applied_date: getToday(),
         memo: form.memo,
-    };
+      };
 
-
-      const response = await fetch(`${API_BASE_URL}/companies`,{
+      const response = await fetch(`${API_BASE_URL}/companies`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -153,14 +253,13 @@ function App() {
         body: JSON.stringify(requestBody),
       });
 
-      if(!response.ok) {
+      if (!response.ok) {
         throw new Error("企業登録に失敗しました。");
       }
 
       const json = await response.json();
 
       const createdCompany = json.data;
-
 
       // 登録成功後、一覧に追加する
       setCompanies((prevCompanies) => [...prevCompanies, createdCompany]);
@@ -173,20 +272,18 @@ function App() {
         priority: "中",
         job_url: "",
         memo: "",
-        applied_date:getToday()
+        applied_date: getToday(),
       });
 
-      alert("企業を登録しました。")
+      alert("企業を登録しました。");
       fetchCompanies();
-    }catch(e) {
+    } catch (e) {
       console.error(e);
       alert("企業登録に失敗しました。");
     } finally {
       setIsSubmitting(false);
     }
-
-
-  }
+  };
 
   // 詳細ボタンを押した企業を選択状態にし、
   // その企業の現在データを詳細モーダル用フォームに詰めてからモーダルを開く。
@@ -219,39 +316,37 @@ function App() {
     setSelectedCompany(null);
   }
 
-
   //これが効くのはボタン押した時、routeの/api/companies/{company}に行き、updateメソッド
-  const handleUpdateCompany = async() => {
-    if(!selectedCompany) return;
+  const handleUpdateCompany = async () => {
+    if (!selectedCompany) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/companies/${selectedCompany.id}`,{
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
+      const response = await fetch(
+        `${API_BASE_URL}/companies/${selectedCompany.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(editForm),
         },
-        body: JSON.stringify(editForm),
-      });
-      
-      if(!response.ok) {
-        throw new Error("情報更新に失敗しました。")
+      );
+
+      if (!response.ok) {
+        throw new Error("情報更新に失敗しました。");
       }
 
       await fetchCompanies();
 
       handleCloseModal();
-
-
-    }catch(e) {
+    } catch (e) {
       console.error(e);
     }
-
-  }
+  };
 
   //削除
-  const handleDelete = async(company: Company) => {
+  const handleDelete = async (company: Company) => {
     // if(!selectedCompany) return;
-
 
     const isConfirmed = window.confirm("この企業を削除しますか？");
 
@@ -260,25 +355,23 @@ function App() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/companies/${company.id}`,{
+      const response = await fetch(`${API_BASE_URL}/companies/${company.id}`, {
         method: "DELETE",
         headers: {
           Accept: "application/json",
-      },
+        },
       });
 
-      if(!response.ok) {
+      if (!response.ok) {
         throw new Error("企業削除に失敗しました。");
       }
 
       alert("企業を先除しました。");
       await fetchCompanies();
-    } catch(e) {
-      console.error(e)
+    } catch (e) {
+      console.error(e);
     }
-  }
-
-
+  };
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-10 text-slate-900">
@@ -350,7 +443,9 @@ function App() {
               />
             </div> */}
             <div>
-              <label className="mb-1 block text-sm font-semibold">求人URL</label>
+              <label className="mb-1 block text-sm font-semibold">
+                求人URL
+              </label>
               <input
                 type="url"
                 value={form.job_url}
@@ -365,7 +460,9 @@ function App() {
               <input
                 type="date"
                 value={form.applied_date}
-                onChange={(e) => setForm({ ...form, applied_date: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, applied_date: e.target.value })
+                }
                 className="w-full rounded border px-3 py-2"
               />
             </div>
@@ -396,7 +493,9 @@ function App() {
 
           <div className="grid gap-4 md:grid-cols-3">
             <div>
-              <label className="mb-1 block text-sm font-semibold">キーワード</label>
+              <label className="mb-1 block text-sm font-semibold">
+                キーワード
+              </label>
               <input
                 type="text"
                 value={keyword}
@@ -457,58 +556,17 @@ function App() {
             </button>
           </div>
         </div>
-        <div className="mt-6">
-          <h2 className="mb-4 text-xl font-bold">企業一覧</h2>
-
-          {companies.length === 0 ? (
-            <p className="text-slate-500">企業データがありません。</p>
-          ) : (
-            <table className="w-full border-collapse text-left text-sm">
-              <thead>
-                <tr className="border-b bg-slate-900 text-white">
-                  <th className="px-3 py-2">企業名</th>
-                  <th className="px-3 py-2">媒体</th>
-                  <th className="px-3 py-2">志望度</th>
-                  <th className="px-3 py-2">状況</th>
-                  <th className="px-3 py-2">求人URL</th>
-                  <th className="px-3 py-2">応募日</th>
-                  <th className="px-3 py-2">メモ</th>
-                  <th className="px-3 py-2">操作</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {companies.map((company) => (
-                  <tr key={company.id} className="border-b">
-                    <td className="px-3 py-2 font-semibold">{company.name}</td>
-                    <td className="px-3 py-2">{company.media ?? "-"}</td>
-                    <td className="px-3 py-2">{company.priority ?? "-"}</td>
-                    <td className="px-3 py-2">{company.status ?? "-"}</td>
-                    <td className="px-3 py-2">{company.jobUrl ?? "-"}</td>
-                    <td className="px-3 py-2">{company.appliedDate ?? "-"}</td>
-                    <td className="px-3 py-2">{company.memo ?? "-"}</td>
-                    <td className="px-3 py-2">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenModal(company)}
-                        className="rounded bg-slate-700 px-3 py-1 text-white"
-                      >
-                        詳細
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(company)}
-                        className="rounded bg-red-600 px-3 py-1 mt-2 text-white hover:bg-red-700"
-                      >
-                        削除
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        <CompanyTable
+          companies={companies}
+          loading={loading}
+          priorityOptions={priorityOptions}
+          statusOptions={statusOptions}
+          onDelete={handleDelete}
+          onOpenModal={handleOpenModal}
+          onPriorityChange={handlePriorityChange}
+          onStatusChange={handleStatusChange}
+          onToggleFavorite={handleToggleFavorite}
+        />
       </section>
       {isModalOpen && selectedCompany && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
@@ -536,7 +594,9 @@ function App() {
 
                 <div className="grid gap-4 md:grid-cols-3">
                   <div>
-                    <label className="mb-1 block text-sm font-semibold">企業名</label>
+                    <label className="mb-1 block text-sm font-semibold">
+                      企業名
+                    </label>
                     <input
                       value={editForm.name}
                       onChange={(e) =>
@@ -547,7 +607,9 @@ function App() {
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-sm font-semibold">媒体</label>
+                    <label className="mb-1 block text-sm font-semibold">
+                      媒体
+                    </label>
                     <input
                       value={editForm.media}
                       onChange={(e) =>
@@ -558,12 +620,17 @@ function App() {
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-sm font-semibold">応募日</label>
+                    <label className="mb-1 block text-sm font-semibold">
+                      応募日
+                    </label>
                     <input
                       type="date"
                       value={editForm.applied_date}
                       onChange={(e) =>
-                        setEditForm({ ...editForm, applied_date: e.target.value })
+                        setEditForm({
+                          ...editForm,
+                          applied_date: e.target.value,
+                        })
                       }
                       className="h-11 w-full rounded-xl border px-3"
                     />
@@ -576,7 +643,9 @@ function App() {
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-sm font-semibold">志望度</label>
+                    <label className="mb-1 block text-sm font-semibold">
+                      志望度
+                    </label>
                     <select
                       value={editForm.priority}
                       onChange={(e) =>
@@ -597,7 +666,9 @@ function App() {
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-sm font-semibold">状況</label>
+                    <label className="mb-1 block text-sm font-semibold">
+                      状況
+                    </label>
                     <select
                       value={editForm.status}
                       onChange={(e) =>
@@ -614,23 +685,33 @@ function App() {
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-sm font-semibold">面談日</label>
+                    <label className="mb-1 block text-sm font-semibold">
+                      面談日
+                    </label>
                     <input
                       type="datetime-local"
                       value={editForm.interview_date}
                       onChange={(e) =>
-                        setEditForm({ ...editForm, interview_date: e.target.value })
+                        setEditForm({
+                          ...editForm,
+                          interview_date: e.target.value,
+                        })
                       }
                       className="h-11 w-full rounded-xl border px-3"
                     />
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-sm font-semibold">次アクション</label>
+                    <label className="mb-1 block text-sm font-semibold">
+                      次アクション
+                    </label>
                     <input
                       value={editForm.next_action}
                       onChange={(e) =>
-                        setEditForm({ ...editForm, next_action: e.target.value })
+                        setEditForm({
+                          ...editForm,
+                          next_action: e.target.value,
+                        })
                       }
                       className="h-11 w-full rounded-xl border px-3"
                     />
@@ -643,7 +724,9 @@ function App() {
 
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
-                    <label className="mb-1 block text-sm font-semibold">求人URL</label>
+                    <label className="mb-1 block text-sm font-semibold">
+                      求人URL
+                    </label>
                     <input
                       value={editForm.job_url}
                       onChange={(e) =>
@@ -654,11 +737,16 @@ function App() {
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-sm font-semibold">面談URL</label>
+                    <label className="mb-1 block text-sm font-semibold">
+                      面談URL
+                    </label>
                     <input
                       value={editForm.interview_url}
                       onChange={(e) =>
-                        setEditForm({ ...editForm, interview_url: e.target.value })
+                        setEditForm({
+                          ...editForm,
+                          interview_url: e.target.value,
+                        })
                       }
                       className="h-11 w-full rounded-xl border px-3"
                     />
@@ -670,7 +758,9 @@ function App() {
 
                 <div className="grid gap-4 md:grid-cols-3">
                   <div>
-                    <label className="mb-1 block text-sm font-semibold">書類選考</label>
+                    <label className="mb-1 block text-sm font-semibold">
+                      書類選考
+                    </label>
                     <select
                       value={editForm.document_result}
                       onChange={(e) =>
@@ -690,7 +780,9 @@ function App() {
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-sm font-semibold">1次面接</label>
+                    <label className="mb-1 block text-sm font-semibold">
+                      1次面接
+                    </label>
                     <select
                       value={editForm.first_interview_result}
                       onChange={(e) =>
@@ -710,7 +802,9 @@ function App() {
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-sm font-semibold">2次面接</label>
+                    <label className="mb-1 block text-sm font-semibold">
+                      2次面接
+                    </label>
                     <select
                       value={editForm.second_interview_result}
                       onChange={(e) =>
@@ -730,7 +824,9 @@ function App() {
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-sm font-semibold">最終結果</label>
+                    <label className="mb-1 block text-sm font-semibold">
+                      最終結果
+                    </label>
                     <select
                       value={editForm.final_result}
                       onChange={(e) =>
@@ -750,7 +846,9 @@ function App() {
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-sm font-semibold">落選段階</label>
+                    <label className="mb-1 block text-sm font-semibold">
+                      落選段階
+                    </label>
                     <select
                       value={editForm.rejection_stage}
                       onChange={(e) =>
@@ -792,7 +890,7 @@ function App() {
                 >
                   キャンセル
                 </button>
-                
+
                 <button
                   type="button"
                   onClick={handleUpdateCompany}
