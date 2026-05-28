@@ -74,3 +74,36 @@ export type Option = {
   value: string;
   label: string;
 };
+
+export type DashBoardSummary = {
+  total: number;
+  interview: number;
+  waiting: number;
+  offer: number;
+  rejected: number;
+  highPriority: number;
+};
+
+// Dashboardの「次に確認する企業」で使う企業リストの型。
+// Laravelの /api/companies/dashboard の actionLists に対応する。
+export type DashboardActionLists = {
+  interviews: Company[];
+  waiting: Company[];
+  highPriority: Company[];
+};
+
+export type ActionListsProps = {
+  companies: Company[];
+  dashboardActionLists?: DashboardActionLists;
+  onOpenDetail: (company: Company) => void;
+};
+export type AuthUser = {
+  id: number;
+  name: string;
+  email: string;
+};
+
+export type AuthResponse = {
+  user: AuthUser;
+  token: string;
+};

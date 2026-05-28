@@ -1,9 +1,18 @@
 import { useEffect, useState } from "react";
-import type { Company, CompanyForm, CompanyEditForm } from "./types/company";
+import type {
+  Company,
+  CompanyForm,
+  CompanyEditForm,
+  DashBoardSummary,
+  DashboardActionLists,
+} from "./types/company";
 import CompanyTable from "./components/CompanyTable";
 import { priorityOptions, statusOptions } from "./constants/companyOptions";
 import { buildCompanyRequestBody } from "./utils/companyUtils";
-
+import SummaryCards from "./components/SummaryCards";
+import ActionLists from "./components/ActionLists";
+import Login from "./components/Login";
+import Register from "./components/Register";
 const API_BASE_URL = "http://127.0.0.1:8001/api";
 
 // 今日の日付を yyyy-MM-dd 形式で取得する関数。
@@ -50,7 +59,51 @@ function App() {
   const [keyword, setKeyword] = useState("");
   const [status, setStatus] = useState("");
   const [media, setMedia] = useState("");
+  const [dashboardSummary, setDashboardSummary] = useState<
+    DashBoardSummary | undefined
+  >(undefined);
 
+  const [dashboardActionList, setDashboardActionList] = useState<
+    DashboardActionLists | undefined
+  >(undefined);
+
+  // 画面を再読み込みしてもログイン状態を残すために、
+  // 初期値を localStorage から読む。
+  const [authToken, setAuthToken] = useState<string | null>(() => {
+    return localStorage.getItem("authToken");
+  });
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+
+  const handleLoginSuccess = (token: string) => {
+    localStorage.setItem("authToken", token);
+    setAuthToken(token);
+  };
+  const handleRegisterSuccess = (token: string) => {
+    localStorage.setItem("authToken", token);
+    setAuthToken(token);
+  };
+
+  const handleLogout = async () => {
+    if (!authToken) return;
+
+    try {
+      await fetch(`${API_BASE_URL}/logout`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      localStorage.removeItem("authToken");
+      setAuthToken(null);
+      setCompanies([]);
+      setDashboardSummary(undefined);
+      setDashboardActionList(undefined);
+    }
+  };
   //一覧表示
   //TODO try catchにする。
   // async function fetchCompanies() {
@@ -82,10 +135,17 @@ function App() {
   // }
 
   //全件表示
-  const fetchCompanies = async () => {
+  const fetchCompanies = async (token = authToken) => {
+    if (!token) return;
+
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/companies`);
+      const response = await fetch(`${API_BASE_URL}/companies`, {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (!response.ok) {
         throw new Error("会社表示に失敗しました。");
@@ -98,6 +158,31 @@ function App() {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDashboard = async (token = authToken) => {
+    if (!token) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/companies/dashboard`, {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("データ取得失敗。");
+      }
+
+      //　型をsummaryで解しているからjson.summary
+      const json = await response.json();
+
+      setDashboardSummary(json.summary);
+      setDashboardActionList(json.actionLists);
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -128,14 +213,16 @@ function App() {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify(requestBody),
       });
       if (!response.ok) {
         throw new Error("志望度変更に失敗しました。");
-
-        await fetchCompanies();
       }
+      await fetchDashboard();
+      await fetchCompanies();
     } catch (e) {
       console.error("志望度変更に失敗しました。");
     } finally {
@@ -152,6 +239,7 @@ function App() {
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify(
           buildCompanyRequestBody(company, {
@@ -163,7 +251,7 @@ function App() {
       if (!response.ok) {
         throw new Error("状況変更に失敗しました。");
       }
-
+      await fetchDashboard();
       await fetchCompanies();
     } catch (e) {
       console.error(e);
@@ -183,7 +271,7 @@ function App() {
           method: "PATCH",
           headers: {
             Accept: "application/json",
-            //Authorization: `Bearer ${authToken}`,
+            Authorization: `Bearer ${authToken}`,
           },
         },
       );
@@ -191,7 +279,7 @@ function App() {
       if (!response.ok) {
         throw new Error("お気に入りの切り替えに失敗しました。");
       }
-
+      await fetchDashboard();
       await fetchCompanies();
     } catch (e) {
       console.error(e);
@@ -202,6 +290,8 @@ function App() {
   };
   //検索取得
   const searchCompanies = async () => {
+    if (!authToken) return;
+
     const params = new URLSearchParams();
 
     if (keyword) {
@@ -216,18 +306,35 @@ function App() {
       params.append("media", media);
     }
 
-    const response = await fetch(
-      `${API_BASE_URL}/companies?${params.toString()}`,
-    );
+    const queryString = params.toString();
+
+    const url = queryString
+      ? `${API_BASE_URL}/companies?${queryString}`
+      : `${API_BASE_URL}/companies`;
+
+    const response = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${authToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("検索に失敗しました。");
+    }
 
     const json = await response.json();
 
     setCompanies(json.data);
+    await fetchDashboard();
   };
 
   useEffect(() => {
-    fetchCompanies();
-  }, []);
+    if (!authToken) return;
+
+    fetchCompanies(authToken);
+    fetchDashboard(authToken);
+  }, [authToken]);
 
   //企業登録
   const createCompany = async () => {
@@ -249,6 +356,8 @@ function App() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify(requestBody),
       });
@@ -269,14 +378,15 @@ function App() {
         name: "",
         media: "",
         status: "",
-        priority: "中",
+        priority: "3.0",
         job_url: "",
         memo: "",
         applied_date: getToday(),
       });
 
       alert("企業を登録しました。");
-      fetchCompanies();
+      await fetchDashboard();
+      await fetchCompanies();
     } catch (e) {
       console.error(e);
       alert("企業登録に失敗しました。");
@@ -327,6 +437,7 @@ function App() {
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
+            Authorization: `Bearer ${authToken}`,
           },
           body: JSON.stringify(editForm),
         },
@@ -336,6 +447,7 @@ function App() {
         throw new Error("情報更新に失敗しました。");
       }
 
+      await fetchDashboard();
       await fetchCompanies();
 
       handleCloseModal();
@@ -358,7 +470,9 @@ function App() {
       const response = await fetch(`${API_BASE_URL}/companies/${company.id}`, {
         method: "DELETE",
         headers: {
+          "Content-Type": "application/json",
           Accept: "application/json",
+          Authorization: `Bearer ${authToken}`,
         },
       });
 
@@ -367,20 +481,115 @@ function App() {
       }
 
       alert("企業を先除しました。");
+      await fetchDashboard();
       await fetchCompanies();
     } catch (e) {
       console.error(e);
     }
   };
+  if (!authToken) {
+    if (authMode === "register") {
+      return (
+        <Register
+          onRegisterSuccess={handleRegisterSuccess}
+          onSwitchToLogin={() => setAuthMode("login")}
+        />
+      );
+    }
+
+    return (
+      <Login
+        onLoginSuccess={handleLoginSuccess}
+        onSwitchToRegister={() => setAuthMode("register")}
+      />
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-100 px-6 py-10 text-slate-900">
-      <section className="mx-auto max-w-5xl rounded-xl bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-bold">JobHunt Lite 1章一覧テスト</h1>
+      <header className="mb-6 max-w-5xl mx-auto flex items-center justify-between rounded-lg border bg-white px-4 py-3 shadow-sm">
+        <div>
+          <h1 className="text-2xl font-bold">JobHunt Lite</h1>
+          <p className="text-sm text-slate-500">応募企業管理ダッシュボード</p>
+        </div>
 
-        <p className="mt-2 text-sm text-slate-600">
-          Laravel API から取得した企業一覧を表示します。
-        </p>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="rounded bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+        >
+          ログアウト
+        </button>
+      </header>
+      <section className="mx-auto max-w-5xl rounded-xl bg-white p-6 shadow-sm">
+        <div className="mt-6 rounded-lg border bg-slate-50 p-4">
+          <h2 className="mb-4 text-xl font-bold">検索・絞り込み</h2>
+
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <label className="mb-1 block text-sm font-semibold">
+                キーワード
+              </label>
+              <input
+                type="text"
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                className="w-full rounded border px-3 py-2"
+                placeholder="企業名・メモで検索"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-semibold">状況</label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full rounded border bg-white px-3 py-2"
+              >
+                <option value="">すべて</option>
+                <option value="応募済み">応募済み</option>
+                <option value="選考中">選考中</option>
+                <option value="内定">内定</option>
+                <option value="落選">落選</option>
+                <option value="辞退">辞退</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-semibold">媒体</label>
+              <input
+                type="text"
+                value={media}
+                onChange={(e) => setMedia(e.target.value)}
+                className="w-full rounded border px-3 py-2"
+                placeholder="Green / type / レバテック"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 flex gap-3">
+            <button
+              type="button"
+              onClick={searchCompanies}
+              className="rounded bg-slate-900 px-4 py-2 font-semibold text-white"
+            >
+              検索する
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setKeyword("");
+                setStatus("");
+                setMedia("");
+                fetchCompanies();
+              }}
+              className="rounded border border-slate-300 px-4 py-2 font-semibold text-slate-700"
+            >
+              条件クリア
+            </button>
+          </div>
+        </div>
         <form className="mt-6 rounded-lg border bg-slate-50 p-4">
           <h2 className="mb-4 text-xl font-bold">企業登録</h2>
 
@@ -488,74 +697,16 @@ function App() {
             {isSubmitting ? "登録中..." : "登録する"}
           </button>
         </form>
-        <div className="mt-6 rounded-lg border bg-slate-50 p-4">
-          <h2 className="mb-4 text-xl font-bold">検索・絞り込み</h2>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <div>
-              <label className="mb-1 block text-sm font-semibold">
-                キーワード
-              </label>
-              <input
-                type="text"
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                className="w-full rounded border px-3 py-2"
-                placeholder="企業名・メモで検索"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-semibold">状況</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="w-full rounded border bg-white px-3 py-2"
-              >
-                <option value="">すべて</option>
-                <option value="応募済み">応募済み</option>
-                <option value="選考中">選考中</option>
-                <option value="内定">内定</option>
-                <option value="落選">落選</option>
-                <option value="辞退">辞退</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-semibold">媒体</label>
-              <input
-                type="text"
-                value={media}
-                onChange={(e) => setMedia(e.target.value)}
-                className="w-full rounded border px-3 py-2"
-                placeholder="Green / type / レバテック"
-              />
-            </div>
-          </div>
-
-          <div className="mt-4 flex gap-3">
-            <button
-              type="button"
-              onClick={searchCompanies}
-              className="rounded bg-slate-900 px-4 py-2 font-semibold text-white"
-            >
-              検索する
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setKeyword("");
-                setStatus("");
-                setMedia("");
-                fetchCompanies();
-              }}
-              className="rounded border border-slate-300 px-4 py-2 font-semibold text-slate-700"
-            >
-              条件クリア
-            </button>
-          </div>
-        </div>
+        <SummaryCards
+          companies={companies}
+          dashboardSummary={dashboardSummary}
+        />
+        <ActionLists
+          companies={companies}
+          dashboardActionLists={dashboardActionList}
+          onOpenDetail={handleOpenModal}
+        />
         <CompanyTable
           companies={companies}
           loading={loading}

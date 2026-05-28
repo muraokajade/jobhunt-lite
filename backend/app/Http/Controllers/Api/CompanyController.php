@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Company;
 use App\Http\Requests\StoreCompanyRequest;
-use App\Http\Requests\updateCompanyRequest;
+use App\Http\Requests\UpdateCompanyRequest;
 
 use App\Http\Resources\CompanyResource;
 
@@ -67,6 +67,9 @@ class CompanyController extends Controller
 
         $validated = $request->validated();
 
+        //ログイン中ユーザーのIDを、登録する企業データの user_id に入れる。
+        $validated['user_id'] = Auth::id();
+
         $company = Company::create($validated);
 
         // return response()->json($company, 201); //確認方法
@@ -85,7 +88,7 @@ class CompanyController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(updateCompanyRequest $request, Company $company)
+    public function update(UpdateCompanyRequest $request, Company $company)
     {
         // $validated = $request->validate([
         //     'name' => ['required', 'string', 'max:255'],
@@ -104,6 +107,8 @@ class CompanyController extends Controller
         //     'final_result' => ['nullable', 'string', 'max:255'],
         //     'rejection_stage' => ['nullable', 'string', 'max:255'],
         // ]);
+
+        abort_unless($company->user_id === Auth::id(), 403);
         $validated = $request->validated();
 
         $company->update($validated);
@@ -116,6 +121,8 @@ class CompanyController extends Controller
      */
     public function destroy(Company $company)
     {
+
+        abort_unless($company->user_id === Auth::id(), 403);
         $company->delete();
 
         return response()->json([
