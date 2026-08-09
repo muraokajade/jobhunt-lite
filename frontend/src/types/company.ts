@@ -55,6 +55,7 @@ export type CompanyEditForm = {
   memo: string;
 };
 
+//徐々出しがいいか
 export type CompanyTableProps = {
   companies: Company[];
   loading: boolean;

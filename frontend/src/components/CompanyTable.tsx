@@ -1,4 +1,4 @@
-import type { CompanyTableProps, Option } from "../types/company";
+import type { CompanyTableProps } from "../types/company";
 
 function CompanyTable({
   companies,

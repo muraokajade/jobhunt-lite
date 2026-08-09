@@ -1,0 +1,44 @@
+services:
+  - type: web
+    name: jobhunt-lite-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    envVars:
+      - key: APP_NAME
+        value: JobHuntLite
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        generateValue: true
+      - key: APP_URL
+        value: https://jobhunt-lite-api.onrender.com
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_URL
+        fromDatabase:
+          name: jobhunt-lite-db
+          property: connectionString
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: error
+      - key: SESSION_DRIVER
+        value: cookie
+      - key: CACHE_STORE
+        value: file
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: CORS_ALLOWED_ORIGINS
+        value: "*"
+      - key: BCRYPT_ROUNDS
+        value: "12"
+
+databases:
+  - name: jobhunt-lite-db
+    plan: free
+    databaseName: jobhunt_lite
+    user: jobhunt_user

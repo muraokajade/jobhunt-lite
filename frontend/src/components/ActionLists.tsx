@@ -37,11 +37,7 @@ function ActionCompanyItem({
 }
 // Dashboardの「次に確認する企業」を表示するコンポーネント。
 // 面談予定・確認待ち・高優先度の3分類を表示する。
-function ActionLists({
-  companies,
-  dashboardActionLists,
-  onOpenDetail,
-}: ActionListsProps) {
+function ActionLists({ dashboardActionLists, onOpenDetail }: ActionListsProps) {
   // APIからactionListsが来ていればそれを使う。
   // まだ取得前なら空配列にして画面を壊さない。
   const interviewCompanies = dashboardActionLists?.interviews ?? [];
